@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indicador de Nivel de Batería — Diego Gonzalez</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg2: #0f1520;
+    --bg3: #141d2e;
+    --panel: #111827;
+    --border: #1e3a5f;
+    --accent: #00d4ff;
+    --accent2: #00ff88;
+    --red: #ff4444;
+    --orange: #ff8800;
+    --yellow: #ffdd00;
+    --green: #00ff88;
+    --text: #c8d8e8;
+    --muted: #5a7a9a;
+    --white: #e8f4ff;
+    --maroon: #8b0000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,14,20,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+
+  .nav-logo {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 80px 2rem 2rem;
+    text-align: center;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .hero-content { position: relative; z-index: 1; max-width: 800px; }
+
+  .badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 2px;
+    letter-spacing: 3px;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.2s forwards;
+  }
+
+  h1.hero-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--white);
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.4s forwards;
+  }
+
+  h1.hero-title span { color: var(--accent); }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--muted);
+    margin-top: 1rem;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.6s forwards;
+  }
+
+  .hero-meta {
+    margin-top: 1.5rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.8s forwards;
+  }
+
+  /* LED DISPLAY ANIMADO */
+  .led-display {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 3rem 0;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 1s forwards;
+  }
+
+  .led-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .led {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    position: relative;
+    cursor: default;
+  }
+
+  .led::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    opacity: 0;
+  }
+
+  .led.red    { background: var(--red);    box-shadow: 0 0 12px var(--red),    0 0 30px rgba(255,68,68,0.4); }
+  .led.orange { background: var(--orange); box-shadow: 0 0 12px var(--orange), 0 0 30px rgba(255,136,0,0.4); }
+  .led.yellow { background: var(--yellow); box-shadow: 0 0 12px var(--yellow), 0 0 30px rgba(255,221,0,0.4); animation: pulse-yellow 2s ease-in-out infinite; }
+  .led.green  { background: var(--green);  box-shadow: 0 0 12px var(--green),  0 0 30px rgba(0,255,136,0.4); animation: pulse-green 2s ease-in-out infinite 0.5s; }
+
+  .led.off {
+    background: #1a2a3a;
+    box-shadow: none;
+    animation: none !important;
+  }
+
+  .led-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* TINKERCAD BUTTON */
+  .tinkercad-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, #ff6b00, #ff8c00);
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 1rem 2.5rem;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 20px rgba(255,107,0,0.4);
+    opacity: 0;
+    animation: fadeUp 0.6s ease 1.2s forwards;
+  }
+
+  .tinkercad-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.4s;
+  }
+
+  .tinkercad-btn:hover { transform: translateY(-2px); box-shadow: 0 0 35px rgba(255,107,0,0.6); }
+  .tinkercad-btn:hover::before { left: 100%; }
+
+  .tinkercad-icon { font-size: 1.3rem; }
+
+  /* SECTIONS */
+  section {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  h2.section-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 1.5rem;
+  }
+
+  h2.section-title span { color: var(--accent); }
+
+  .divider {
+    width: 60px; height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    margin-bottom: 2rem;
+  }
+
+  p.body-text {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.8;
+    margin-bottom: 1.2rem;
+    max-width: 800px;
+  }
+
+  /* CARDS OBJETIVOS */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+    margin-top: 2rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .card:hover::before { opacity: 1; }
+
+  .card-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2rem;
+    color: var(--border);
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .card h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .card p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+  /* COMPONENTES */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2rem;
+    font-size: 0.85rem;
+  }
+
+  .comp-table th {
+    background: rgba(0,212,255,0.08);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comp-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(30,58,95,0.4);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+
+  .comp-table tr:hover td { background: rgba(0,212,255,0.03); }
+
+  .nivel-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .nb-green  { background: rgba(0,255,136,0.12); color: var(--green);  border: 1px solid rgba(0,255,136,0.3); }
+  .nb-yellow { background: rgba(255,221,0,0.12);  color: var(--yellow); border: 1px solid rgba(255,221,0,0.3); }
+  .nb-orange { background: rgba(255,136,0,0.12);  color: var(--orange); border: 1px solid rgba(255,136,0,0.3); }
+  .nb-red    { background: rgba(255,68,68,0.12);  color: var(--red);    border: 1px solid rgba(255,68,68,0.3); }
+
+  /* CALCULOS */
+  .calc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .calc-card {
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 1.5rem;
+    border-left: 3px solid;
+    position: relative;
+  }
+
+  .calc-card.c-green  { border-color: var(--green); }
+  .calc-card.c-yellow { border-color: var(--yellow); }
+  .calc-card.c-orange { border-color: var(--orange); }
+  .calc-card.c-red    { border-color: var(--red); }
+
+  .calc-level {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--white);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .calc-row:last-child { border: none; }
+
+  .calc-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .calc-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--white);
+    font-weight: 600;
+  }
+
+  /* VOLTAJE INTERACTIVO */
+  .volt-simulator {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2.5rem;
+    margin-top: 2rem;
+  }
+
+  .volt-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 1.5rem;
+  }
+
+  .volt-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .volt-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.5rem;
+    color: var(--accent);
+    min-width: 100px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .sim-leds {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .sim-led-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sim-led {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #1a2a3a;
+    transition: background 0.3s, box-shadow 0.3s;
+    position: relative;
+  }
+
+  .sim-led.on-green  { background: var(--green);  box-shadow: 0 0 16px var(--green),  0 0 40px rgba(0,255,136,0.5); }
+  .sim-led.on-yellow { background: var(--yellow); box-shadow: 0 0 16px var(--yellow), 0 0 40px rgba(255,221,0,0.5); }
+  .sim-led.on-orange { background: var(--orange); box-shadow: 0 0 16px var(--orange), 0 0 40px rgba(255,136,0,0.5); }
+  .sim-led.on-red    { background: var(--red);    box-shadow: 0 0 16px var(--red),    0 0 40px rgba(255,68,68,0.5); }
+
+  .sim-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* COMPORTAMIENTO TABLE */
+  .behavior-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    font-size: 0.82rem;
+  }
+
+  .behavior-table th {
+    background: var(--bg3);
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    padding: 0.7rem;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+
+  .behavior-table td {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid rgba(30,58,95,0.4);
+    text-align: center;
+  }
+
+  .on  { color: var(--green); font-weight: 600; font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; }
+  .off { color: var(--muted); font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; }
+
+  /* TEORIA */
+  .theory-block {
+    background: var(--bg3);
+    border-left: 3px solid var(--accent);
+    padding: 1.5rem 1.5rem 1.5rem 2rem;
+    margin: 1.5rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .theory-block h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    color: var(--white);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .theory-block p {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .formula-box {
+    background: rgba(0,212,255,0.05);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 4px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--accent);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* FOOTER */
+  footer {
+    position: relative;
+    z-index: 1;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  .footer-logo {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 2px;
+  }
+
+  .footer-links {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .footer-links a {
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: color 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
+
+  .footer-links a:hover { color: var(--accent); }
+
+  /* SECTION BG ALTERNATE */
+  .section-alt { background: linear-gradient(180deg, transparent, rgba(0,212,255,0.02), transparent); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 12px var(--green),  0 0 30px rgba(0,255,136,0.4); }
+    50%       { box-shadow: 0 0 20px var(--green),  0 0 50px rgba(0,255,136,0.7); }
+  }
+
+  @keyframes pulse-yellow {
+    0%, 100% { box-shadow: 0 0 12px var(--yellow), 0 0 30px rgba(255,221,0,0.4); }
+    50%       { box-shadow: 0 0 20px var(--yellow), 0 0 50px rgba(255,221,0,0.7); }
+  }
+
+  .fade-in {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    .sim-leds { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">// INDICADOR_BATERIA_V2.0</div>
+  <ul class="nav-links">
+    <li><a href="#intro">Intro</a></li>
+    <li><a href="#teoria">Teoría</a></li>
+    <li><a href="#componentes">Componentes</a></li>
+    <li><a href="#calculos">Cálculos</a></li>
+    <li><a href="#simulador">Simulador</a></li>
+    <li><a href="#tinkercad">Tinkercad</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="badge">ELECTRÓNICA ANALÓGICA · SEP ENTREGA FINAL</div>
+    <h1 class="hero-title">Indicador de <span>Nivel</span><br>de Batería</h1>
+    <p class="hero-sub">Circuito analógico con diodos Zener como umbrales de voltaje diferenciados</p>
+    <div class="hero-meta">
+      Diego Alexander Gonzalez Zuleta · 6990 24 15014 · Universidad Mariano Gálvez · 23 mayo 2026
+    </div>
+
+    <div class="led-display">
+      <div class="led-item">
+        <div class="led red"></div>
+        <div class="led-label">25%<br>4.1V</div>
+      </div>
+      <div class="led-item">
+        <div class="led orange"></div>
+        <div class="led-label">50%<br>5.4V</div>
+      </div>
+      <div class="led-item">
+        <div class="led yellow"></div>
+        <div class="led-label">75%<br>8.3V</div>
+      </div>
+      <div class="led-item">
+        <div class="led green"></div>
+        <div class="led-label">100%<br>10.3V</div>
+      </div>
+    </div>
+
+    <a href="https://www.tinkercad.com/things/1RjYplTinTc-medidor-de-voltaje-1-/editel?returnTo=https%3A%2F%2Fwww.tinkercad.com%2Fdashboard&sharecode=7mGgMVvkpunPWKo1qXgBxIgDfln-886TgvjkwDgfx6E"
+       target="_blank" class="tinkercad-btn">
+      <span class="tinkercad-icon">⚡</span>
+      Probar en Tinkercad
+    </a>
+  </div>
+</div>
+
+<!-- INTRODUCCION -->
+<section id="intro">
+  <div class="fade-in">
+    <div class="section-label">01 // Introducción</div>
+    <h2 class="section-title">¿Qué es este <span>proyecto</span>?</h2>
+    <div class="divider"></div>
+    <p class="body-text">Este proyecto consiste en el diseño e implementación de un indicador de nivel de batería de 12V utilizando diodos Zener como referencias de voltaje. A diferencia del diseño convencional con diodos 1N4148, cada Zener establece un umbral de conducción específico, activando únicamente el LED correspondiente al nivel de voltaje presente.</p>
+    <p class="body-text">El circuito utiliza cuatro ramas paralelas independientes, cada una con un diodo Zener de distinto voltaje de ruptura (Vz), una resistencia limitadora de corriente y un LED de color diferente. El conjunto fue simulado en Tinkercad y construido físicamente en protoboard, alimentado con una fuente de 13.5V DC.</p>
+  </div>
+
+  <div class="cards-grid" style="margin-top:3rem;">
+    <div class="card fade-in">
+      <div class="card-num">01</div>
+      <h3>Umbrales precisos</h3>
+      <p>El Vz de cada Zener determina exactamente el voltaje de activación de su LED, sin interferencia entre ramas.</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-num">02</div>
+      <h3>Sin microcontrolador</h3>
+      <p>Circuito 100% analógico. No requiere programación, Arduino ni software de ningún tipo.</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-num">03</div>
+      <h3>4 niveles visuales</h3>
+      <p>LEDs rojo, naranja, amarillo y verde indican 25%, 50%, 75% y 100% de carga respectivamente.</p>
+    </div>
+    <div class="card fade-in">
+      <div class="card-num">04</div>
+      <h3>Zener vs 1N4148</h3>
+      <p>El diseño con Zener es técnicamente superior: cada rama tiene un umbral independiente y ajustable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TEORIA -->
+<section id="teoria" class="section-alt">
+  <div class="fade-in">
+    <div class="section-label">02 // Marco Teórico</div>
+    <h2 class="section-title">Principio de <span>funcionamiento</span></h2>
+    <div class="divider"></div>
+
+    <div class="theory-block fade-in">
+      <h3>Diodo Zener en ruptura inversa</h3>
+      <p>El diodo Zener está diseñado para operar de forma estable en la región de ruptura inversa. Cuando la tensión inversa aplicada alcanza su voltaje de ruptura (Vz), el diodo conduce corriente de manera controlada. Por debajo de Vz, la corriente es prácticamente nula y el LED permanece apagado.</p>
+    </div>
+
+    <div class="theory-block fade-in">
+      <h3>Ventaja sobre el diodo 1N4148</h3>
+      <p>El diodo 1N4148 conduce siempre a ~0.7V en polarización directa, haciendo que todas las ramas se activen al mismo voltaje. El Zener permite seleccionar el umbral de cada rama individualmente mediante la elección del valor Vz apropiado, creando un verdadero indicador por niveles diferenciados.</p>
+    </div>
+
+    <div class="formula-box fade-in">
+      Umbral de encendido = Vz + V<sub>LED</sub> &nbsp;|&nbsp; I = (Vcc − Vz − V<sub>LED</sub>) / R &nbsp;|&nbsp; P = I² × R
+    </div>
+
+    <div class="theory-block fade-in">
+      <h3>Ley de Voltajes de Kirchhoff (LVK)</h3>
+      <p>La suma de caídas de tensión en una malla cerrada es igual a la tensión de alimentación: Vcc = Vz + VLED + (I × R). Despejando la corriente se obtiene la fórmula de diseño para cada rama, permitiendo calcular la resistencia necesaria para mantener la corriente dentro del rango seguro de los LEDs (10–20mA).</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMPONENTES -->
+<section id="componentes">
+  <div class="fade-in">
+    <div class="section-label">03 // Materiales</div>
+    <h2 class="section-title">Lista de <span>componentes</span></h2>
+    <div class="divider"></div>
+    <p class="body-text">Componentes utilizados en la construcción del prototipo, con sus especificaciones técnicas y función en el circuito.</p>
+
+    <table class="comp-table fade-in">
+      <thead>
+        <tr>
+          <th>Cant.</th>
+          <th>Componente</th>
+          <th>Especificación</th>
+          <th>Nivel</th>
+          <th>Función</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Fuente DC</td>
+          <td>EMTOP 13.5V / 0.65A</td>
+          <td>—</td>
+          <td>Alimentación del circuito</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Resistencia 330Ω</td>
+          <td>1/4W, ±5%</td>
+          <td><span class="nivel-badge nb-green">100%</span></td>
+          <td>Limita corriente LED verde</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Diodo Zener 8.2V</td>
+          <td>BZX55C8V2, 0.5W</td>
+          <td><span class="nivel-badge nb-green">100%</span></td>
+          <td>Umbral: enciende a ≥10.3V</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>LED Verde 5mm</td>
+          <td>Vf = 2.1V, 20mA</td>
+          <td><span class="nivel-badge nb-green">100%</span></td>
+          <td>Indica batería llena</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Resistencia 330Ω</td>
+          <td>1/4W, ±5%</td>
+          <td><span class="nivel-badge nb-yellow">75%</span></td>
+          <td>Limita corriente LED amarillo</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Diodo Zener 6.2V</td>
+          <td>BZX55C6V2, 0.5W</td>
+          <td><span class="nivel-badge nb-yellow">75%</span></td>
+          <td>Umbral: enciende a ≥8.3V</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>LED Amarillo 5mm</td>
+          <td>Vf = 2.1V, 20mA</td>
+          <td><span class="nivel-badge nb-yellow">75%</span></td>
+          <td>Indica carga media-alta</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Resistencia 470Ω</td>
+          <td>1/4W, ±5%</td>
+          <td><span class="nivel-badge nb-orange">50%</span></td>
+          <td>Limita corriente LED naranja</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Diodo Zener 3.3V</td>
+          <td>BZX55C3V3, 0.5W</td>
+          <td><span class="nivel-badge nb-orange">50%</span></td>
+          <td>Umbral: enciende a ≥5.4V</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>LED Naranja 5mm</td>
+          <td>Vf = 2.1V, 20mA</td>
+          <td><span class="nivel-badge nb-orange">50%</span></td>
+          <td>Indica carga media-baja</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Resistencia 560Ω</td>
+          <td>1/4W, ±5%</td>
+          <td><span class="nivel-badge nb-red">25%</span></td>
+          <td>Limita corriente LED rojo</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Diodo Zener 2.2V</td>
+          <td>BZX55C2V2, 0.5W</td>
+          <td><span class="nivel-badge nb-red">25%</span></td>
+          <td>Umbral: enciende a ≥4.1V</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>LED Rojo 5mm</td>
+          <td>Vf = 1.9V, 20mA</td>
+          <td><span class="nivel-badge nb-red">25%</span></td>
+          <td>Indica batería crítica</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>Protoboard</td>
+          <td>830 puntos</td>
+          <td>—</td>
+          <td>Plataforma de prototipado</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- CALCULOS -->
+<section id="calculos" class="section-alt">
+  <div class="fade-in">
+    <div class="section-label">04 // Análisis</div>
+    <h2 class="section-title">Ecuaciones y <span>cálculos</span></h2>
+    <div class="divider"></div>
+    <p class="body-text">Análisis por Ley de Voltajes de Kirchhoff de cada rama. Vcc = 13.5V. Todas las corrientes dentro del rango seguro (10–20mA).</p>
+
+    <div class="calc-grid">
+      <div class="calc-card c-green fade-in">
+        <div class="calc-level">
+          <div class="sim-led on-green" style="width:16px;height:16px;"></div>
+          LED Verde — 100%
+        </div>
+        <div class="calc-row"><span class="calc-key">Zener (Vz)</span><span class="calc-val">8.2V</span></div>
+        <div class="calc-row"><span class="calc-key">V_LED</span><span class="calc-val">2.1V</span></div>
+        <div class="calc-row"><span class="calc-key">Resistencia</span><span class="calc-val">330Ω</span></div>
+        <div class="calc-row"><span class="calc-key">Umbral</span><span class="calc-val">10.3V</span></div>
+        <div class="calc-row"><span class="calc-key">I = (13.5−8.2−2.1)/330</span><span class="calc-val">9.7mA ✓</span></div>
+        <div class="calc-row"><span class="calc-key">P = I²×R</span><span class="calc-val">0.031W ✓</span></div>
+      </div>
+
+      <div class="calc-card c-yellow fade-in">
+        <div class="calc-level">
+          <div class="sim-led on-yellow" style="width:16px;height:16px;"></div>
+          LED Amarillo — 75%
+        </div>
+        <div class="calc-row"><span class="calc-key">Zener (Vz)</span><span class="calc-val">6.2V</span></div>
+        <div class="calc-row"><span class="calc-key">V_LED</span><span class="calc-val">2.1V</span></div>
+        <div class="calc-row"><span class="calc-key">Resistencia</span><span class="calc-val">330Ω</span></div>
+        <div class="calc-row"><span class="calc-key">Umbral</span><span class="calc-val">8.3V</span></div>
+        <div class="calc-row"><span class="calc-key">I = (13.5−6.2−2.1)/330</span><span class="calc-val">15.8mA ✓</span></div>
+        <div class="calc-row"><span class="calc-key">P = I²×R</span><span class="calc-val">0.082W ✓</span></div>
+      </div>
+
+      <div class="calc-card c-orange fade-in">
+        <div class="calc-level">
+          <div class="sim-led on-orange" style="width:16px;height:16px;"></div>
+          LED Naranja — 50%
+        </div>
+        <div class="calc-row"><span class="calc-key">Zener (Vz)</span><span class="calc-val">3.3V</span></div>
+        <div class="calc-row"><span class="calc-key">V_LED</span><span class="calc-val">2.1V</span></div>
+        <div class="calc-row"><span class="calc-key">Resistencia</span><span class="calc-val">470Ω</span></div>
+        <div class="calc-row"><span class="calc-key">Umbral</span><span class="calc-val">5.4V</span></div>
+        <div class="calc-row"><span class="calc-key">I = (13.5−3.3−2.1)/470</span><span class="calc-val">17.2mA ✓</span></div>
+        <div class="calc-row"><span class="calc-key">P = I²×R</span><span class="calc-val">0.139W ✓</span></div>
+      </div>
+
+      <div class="calc-card c-red fade-in">
+        <div class="calc-level">
+          <div class="sim-led on-red" style="width:16px;height:16px;"></div>
+          LED Rojo — 25%
+        </div>
+        <div class="calc-row"><span class="calc-key">Zener (Vz)</span><span class="calc-val">2.2V</span></div>
+        <div class="calc-row"><span class="calc-key">V_LED</span><span class="calc-val">1.9V</span></div>
+        <div class="calc-row"><span class="calc-key">Resistencia</span><span class="calc-val">560Ω</span></div>
+        <div class="calc-row"><span class="calc-key">Umbral</span><span class="calc-val">4.1V</span></div>
+        <div class="calc-row"><span class="calc-key">I = (13.5−2.2−1.9)/560</span><span class="calc-val">16.8mA ✓</span></div>
+        <div class="calc-row"><span class="calc-key">P = I²×R</span><span class="calc-val">0.158W ✓</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIMULADOR INTERACTIVO -->
+<section id="simulador">
+  <div class="fade-in">
+    <div class="section-label">05 // Simulador</div>
+    <h2 class="section-title">Prueba el <span>comportamiento</span></h2>
+    <div class="divider"></div>
+    <p class="body-text">Mueve el control deslizante para simular diferentes voltajes de batería y observa qué LEDs se encienden según los umbrales Zener del circuito.</p>
+
+    <div class="volt-simulator fade-in">
+      <div class="volt-title">// SIMULADOR DE VOLTAJE</div>
+      <div class="volt-slider-wrap">
+        <span class="volt-value" id="voltDisplay">13.5V</span>
+        <input type="range" id="voltSlider" min="0" max="140" value="135" step="1">
+      </div>
+      <div class="sim-leds">
+        <div class="sim-led-item">
+          <div class="sim-led" id="led-red"></div>
+          <div class="sim-label">ROJO<br>≥4.1V<br>25%</div>
+        </div>
+        <div class="sim-led-item">
+          <div class="sim-led" id="led-orange"></div>
+          <div class="sim-label">NARANJA<br>≥5.4V<br>50%</div>
+        </div>
+        <div class="sim-led-item">
+          <div class="sim-led" id="led-yellow"></div>
+          <div class="sim-label">AMARILLO<br>≥8.3V<br>75%</div>
+        </div>
+        <div class="sim-led-item">
+          <div class="sim-led" id="led-green"></div>
+          <div class="sim-label">VERDE<br>≥10.3V<br>100%</div>
+        </div>
+      </div>
+      <div id="sim-status" style="margin-top:1.5rem; font-family:'Share Tech Mono',monospace; font-size:0.75rem; color:var(--muted); letter-spacing:1px;"></div>
+    </div>
+
+    <!-- TABLA COMPORTAMIENTO -->
+    <table class="behavior-table fade-in" style="margin-top:3rem;">
+      <thead>
+        <tr>
+          <th>Voltaje batería</th>
+          <th>🔴 Rojo (≥4.1V)</th>
+          <th>🟠 Naranja (≥5.4V)</th>
+          <th>🟡 Amarillo (≥8.3V)</th>
+          <th>🟢 Verde (≥10.3V)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">13.5V (100%)</td>
+          <td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="on">ON</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">10.3V – 13.4V</td>
+          <td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="on">ON</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">8.3V – 10.2V</td>
+          <td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="off">OFF</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">5.4V – 8.2V</td>
+          <td><span class="on">ON</span></td><td><span class="on">ON</span></td><td><span class="off">OFF</span></td><td><span class="off">OFF</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">4.1V – 5.3V</td>
+          <td><span class="on">ON</span></td><td><span class="off">OFF</span></td><td><span class="off">OFF</span></td><td><span class="off">OFF</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--white);font-family:'Share Tech Mono',monospace;font-size:0.8rem;">&lt; 4.1V</td>
+          <td><span class="off">OFF</span></td><td><span class="off">OFF</span></td><td><span class="off">OFF</span></td><td><span class="off">OFF</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- TINKERCAD CTA -->
+<section id="tinkercad" style="text-align:center; padding: 4rem 2rem;">
+  <div class="fade-in">
+    <div class="section-label" style="text-align:center;">06 // Simulación</div>
+    <h2 class="section-title" style="text-align:center;">Pruébalo en <span>Tinkercad</span></h2>
+    <div class="divider" style="margin:0 auto 2rem;"></div>
+    <p class="body-text" style="text-align:center; margin:0 auto 2rem;">
+      El circuito completo está disponible en Tinkercad para que puedas interactuar con él, modificar valores y verificar el funcionamiento en simulación.
+    </p>
+
+    <div style="background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:2rem; max-width:600px; margin:0 auto 2rem; text-align:left;">
+      <div style="font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--accent); margin-bottom:1rem; letter-spacing:2px;">// DETALLES DEL PROYECTO</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; font-size:0.82rem;">
+        <div><span style="color:var(--muted);">Plataforma:</span> <span style="color:var(--white);">Tinkercad</span></div>
+        <div><span style="color:var(--muted);">Tipo:</span> <span style="color:var(--white);">Circuito + Simulación</span></div>
+        <div><span style="color:var(--muted);">Fuente:</span> <span style="color:var(--white);">13.5V DC</span></div>
+        <div><span style="color:var(--muted);">LEDs:</span> <span style="color:var(--white);">4 ramas paralelas</span></div>
+        <div><span style="color:var(--muted);">Componentes:</span> <span style="color:var(--white);">Zener + R + LED</span></div>
+        <div><span style="color:var(--muted);">Estado:</span> <span style="color:var(--green);">✓ Funcional</span></div>
+      </div>
+    </div>
+
+    <a href="https://www.tinkercad.com/things/1RjYplTinTc-medidor-de-voltaje-1-/editel?returnTo=https%3A%2F%2Fwww.tinkercad.com%2Fdashboard&sharecode=7mGgMVvkpunPWKo1qXgBxIgDfln-886TgvjkwDgfx6E"
+       target="_blank" class="tinkercad-btn" style="font-size:1.2rem; padding:1.2rem 3rem;">
+      <span class="tinkercad-icon">⚡</span>
+      Abrir simulación en Tinkercad
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Indicador de Nivel de Batería</div>
+  <div class="footer-sub">Universidad Mariano Gálvez · Electrónica Analógica · 2026</div>
+  <div style="margin-top:0.5rem; font-family:'Share Tech Mono',monospace; font-size:0.7rem; color:var(--muted);">
+    Diego Alexander Gonzalez Zuleta · 6990 24 15014
+  </div>
+  <div class="footer-links">
+    <a href="#intro">Introducción</a>
+    <a href="#teoria">Teoría</a>
+    <a href="#componentes">Componentes</a>
+    <a href="#calculos">Cálculos</a>
+    <a href="#simulador">Simulador</a>
+    <a href="https://www.tinkercad.com/things/1RjYplTinTc-medidor-de-voltaje-1-/editel?returnTo=https%3A%2F%2Fwww.tinkercad.com%2Fdashboard&sharecode=7mGgMVvkpunPWKo1qXgBxIgDfln-886TgvjkwDgfx6E" target="_blank">Tinkercad ↗</a>
+  </div>
+</footer>
+
+<script>
+  // Fade in on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // Voltage simulator
+  const slider = document.getElementById('voltSlider');
+  const display = document.getElementById('voltDisplay');
+  const status = document.getElementById('sim-status');
+
+  function updateSim() {
+    const v = slider.value / 10;
+    display.textContent = v.toFixed(1) + 'V';
+
+    const lr = document.getElementById('led-red');
+    const lo = document.getElementById('led-orange');
+    const ly = document.getElementById('led-yellow');
+    const lg = document.getElementById('led-green');
+
+    lr.className = 'sim-led' + (v >= 4.1  ? ' on-red'    : '');
+    lo.className = 'sim-led' + (v >= 5.4  ? ' on-orange' : '');
+    ly.className = 'sim-led' + (v >= 8.3  ? ' on-yellow' : '');
+    lg.className = 'sim-led' + (v >= 10.3 ? ' on-green'  : '');
+
+    let count = [v>=4.1, v>=5.4, v>=8.3, v>=10.3].filter(Boolean).length;
+    let pct = count === 4 ? '100%' : count === 3 ? '75%' : count === 2 ? '50%' : count === 1 ? '25%' : '0%';
+    let msg = v < 4.1 ? 'BATERÍA DESCARGADA — todos los LEDs apagados' :
+              count === 1 ? `NIVEL CRÍTICO — solo LED rojo activo (${pct})` :
+              count === 2 ? `NIVEL BAJO — LEDs rojo + naranja activos (${pct})` :
+              count === 3 ? `NIVEL MEDIO — LEDs rojo + naranja + amarillo activos (${pct})` :
+              `BATERÍA LLENA — todos los LEDs activos (${pct})`;
+    status.textContent = '> ' + msg;
+  }
+
+  slider.addEventListener('input', updateSim);
+  updateSim();
+</script>
+</body>
+</html>
